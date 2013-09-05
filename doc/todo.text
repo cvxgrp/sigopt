@@ -1,0 +1,21 @@
+SIGOPT todo:
+============
+
+Future features
+---------------
+* find z automatically
+    * debug utilities.find_z, determine when it works
+    * use utilities.check_z to verify correctness (actually only checks concave env)
+* make cvxopt backend robust
+* delete all cvxopt dependencies from glpk side
+* parallel threading
+    * with glpk, might actually see a speed up
+* parallel processes
+    *  as currently implemented, it would wait forever for no reason
+        * maybe can fix just using get_nowait() with appropriate error checking
+    * other problem was determining best stopping condition
+        * central processor needs to make sure the optimal node 
+            isn't just being processed by a different processor
+* general branch and bound solver
+    * feed it your own ULB procedure
+    
