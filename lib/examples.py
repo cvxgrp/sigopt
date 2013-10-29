@@ -42,7 +42,7 @@ def ilp(n=20,m=5,seed=3,tol=.01):
   
   A \in \reals^{m \times n}
   '''
-  # generate x\in \{0,1\}^n st A*x = b
+  # generate x\in \{0,1\}^n st C*x = d
   numpy.random.seed(seed)
   C = numpy.random.normal(0,1,(m,n))
   x0 = numpy.ceil(numpy.random.uniform(0,2,n))-1

@@ -65,7 +65,7 @@ class Problem(object):
     problem.partition is a priority queue containing all nodes under consideration
         indexed by their upper bounds, in decreasing order.
         
-    problem.bounds is a list of the bounds obtained after each iteration.  
+    problem.bounds is a list of the bounds obtained after each iteration.
     '''
     
     def __init__(self,l,u,fs,
