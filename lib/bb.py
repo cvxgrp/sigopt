@@ -65,13 +65,16 @@ class Problem(object):
     problem.partition is a priority queue containing all nodes under consideration
         indexed by their upper bounds, in decreasing order.
         
-    problem.bounds is a list of the bounds obtained after each iteration.  
+    problem.bounds is a list of the bounds obtained after each iteration. 
+    
+    if refine == True, then the lower bound is computed using a point given by solving 
+    a random LP, as prescribed by a forthcoming paper on duality bounds. 
     '''
     
     def __init__(self,l,u,fs,
                  A=None,b=None,C=None,d=None,constr=None,variable=None,
                  tol=.01,sub_tol=None,name='',nthreads = 1,check_z=False,
-                 solver = 'glpk'):
+                 solver = 'glpk', refine = True):
         
         # parameters
         self.tol = tol
