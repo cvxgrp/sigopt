@@ -144,7 +144,7 @@ def test_db():
         print example, pstar, new_LB, f_of_xhat, improvement_ratio
         improvement.append(improvement_ratio)
         
-    print improvement
+    print 'improvements:',improvement
         
 if __name__=='__main__':
     test_db()
