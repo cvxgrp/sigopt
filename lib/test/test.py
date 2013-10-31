@@ -130,15 +130,6 @@ def test_db():
         random_problem.solve()
         x_tilde = random_problem.x[:n]
         
-        # check feasibility, just to make sure
-        if 0:
-            feasible = all(matrix(problem.constr['A'])*matrix(x_tilde).T <= matrix(problem.constr['b']))
-            for i in range(n):
-                feasible = feasible and x_tilde[i] <= problem.u[i]
-                feasible = feasible and x_tilde[i] >= problem.l[i]
-            if feasible: print example,'feasible:',
-            else: print example,'not feasible:',
-        
         new_LB = sum(map(lambda (fi,xi): fi[0](xi), zip(f_orig,x_tilde)))
     
         # Find true solution pstar & improvement
