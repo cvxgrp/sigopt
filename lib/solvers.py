@@ -254,5 +254,11 @@ def maximize_fapx_glpk( node, problem, verbose = False ):
     fapxi = numpy.array([c.primal for c in lp.cols[n:]])
     maxdiff_index = numpy.argmax( fapxi - fi )
     results = {'x': xstar, 'fapx': lp.obj.value, 'f': float(sum(fi)), 'maxdiff_index': maxdiff_index}
+    
+    if problem.refine:
+        results = solvers.random_lp_glpk()
+    
     if verbose: print 'fi',fi,'fapxi',fapxi,results
     return results
+    
+def random_lp_glpk()

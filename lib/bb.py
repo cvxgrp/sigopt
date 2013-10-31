@@ -88,6 +88,7 @@ class Problem(object):
             self.name = 'sp'
         self.nthreads = nthreads
         self.solver = solver
+        self.refine = refine
         
         # box constraints
         # cast everything to float, since cvxopt breaks if numpy.float64 floats are used
