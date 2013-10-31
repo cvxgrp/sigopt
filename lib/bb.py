@@ -67,14 +67,15 @@ class Problem(object):
         
     problem.bounds is a list of the bounds obtained after each iteration. 
     
-    if refine == True, then the lower bound is computed using a point given by solving 
-    a random LP, as prescribed by a forthcoming paper on duality bounds. 
+    if rand_refine > 0, then the lower bound is computed using the best point 
+    given by solving rand_refine random LPs, 
+    as prescribed by a forthcoming paper on duality bounds. 
     '''
     
     def __init__(self,l,u,fs,
                  A=None,b=None,C=None,d=None,constr=None,variable=None,
                  tol=.01,sub_tol=None,name='',nthreads = 1,check_z=False,
-                 solver = 'glpk', refine = True):
+                 solver = 'glpk', rand_refine = 0):
         
         # parameters
         self.tol = tol
@@ -88,7 +89,7 @@ class Problem(object):
             self.name = 'sp'
         self.nthreads = nthreads
         self.solver = solver
-        self.refine = refine
+        self.rand_refine = rand_refine
         
         # box constraints
         # cast everything to float, since cvxopt breaks if numpy.float64 floats are used
