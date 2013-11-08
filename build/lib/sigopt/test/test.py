@@ -146,30 +146,27 @@ def test_db():
         
     print 'improvements:',improvement
         
-def test_rand_refine(solver='glpk'):
+def test_rand_refine(solver='glpk',rand_refine = 3,maxiters=10):
     from sigopt import Problem
-    problem_names = ['bidding(n=16,type="admit",tol=.01)',
-                'bidding(n=16,type="pretty",tol=.01)',
-                'bidding(n=16,type="profit",tol=.01)',
-                'bidding(n=16,type="winnings",B=.5,tol=.01)',
-                'ilp(n=25,m=5)',
-                'num(n=16,m=10,s=3)',
-                'num(n=16,s=3,opt="ring",func="quadratic")',
-                'num(n=16,m=10,s=3,opt="local")'
-                ]
+
+    problem_names = ['ilp(n=25,m=5)',
+                     'ilp(n=50,m=10)',
+                     'ilp(n=75,m=15)',
+                     'ilp(n=100,m=20)',
+                    ]
 
     ## see how much we improve using db LP
     improvement = []
     for example in problem_names:
     
         problem = eval('examples.'+example)    
-        problem.solve(maxiters=1,solver=solver)
-        before_rand = problem.bounds[-1][0]
+        problem.solve(maxiters=maxiters,solver=solver)
+        before_rand = problem.best_node.LB
         
-        problem = eval('examples.'+example)    
-        problem.solve(maxiters=1,solver=solver,rand_refine=3)
-        after_rand = problem.bounds[-1][0]
-        print before_rand, after_rand
+        new_problem = problem.new()    
+        new_problem.solve(maxiters=maxiters,solver=solver,rand_refine=rand_refine)
+        after_rand = new_problem.best_node.LB
+        print 'improvements:',before_rand, after_rand
         
 if __name__=='__main__':
     test_rand_refine()

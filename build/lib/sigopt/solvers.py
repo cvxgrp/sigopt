@@ -27,6 +27,10 @@ import glpk, numpy
 from cvxopt.base import matrix, spmatrix, exp
 from cvxopt.modeling import variable, op, max, sum
 import utilities
+try: 
+    import cvxpy
+except:
+    pass
 
 def cvxopt_modeling2cvxopt_matrices(op):
     '''
@@ -161,7 +165,7 @@ def sigopt2pyglpk(slopes,offsets,l,u,A,b,C,d):
     lp.matrix = mat
     return lp             
               
-def maximize_fapx_cvxopt( node, problem, scoop=False):
+def maximize_fapx_cvxopt(node, problem, scoop=False):
     '''
     Finds the value of y solving maximize sum(fapx(x)) subject to:
                        constr
@@ -179,12 +183,14 @@ def maximize_fapx_cvxopt( node, problem, scoop=False):
     scoop = True optionally dumps all problem parameters into a file
     which can be parsed and solved using the scoop second order cone 
     modeling language
+    
+    XXX obsolete usage of get_fapx ???
     '''
     n = len(node.l);
     l = matrix(node.l); u = matrix(node.u)
 
-    x = problem.variable
-    constr = problem.constr
+    x = problem.cvxopt_variable
+    constr = problem.cvxopt_constr
         
     # add box constraints
     box = [x[i]<=u[i] for i in xrange(n)] + [x[i]>=l[i] for i in xrange(n)]
@@ -219,79 +225,79 @@ def maximize_fapx_cvxopt( node, problem, scoop=False):
         results = {'x': list(x.value), 'fapx': -list(obj.value())[0], 'f': float(sum(fi)), 'maxdiff_index': maxdiff_index}
         return results
         
-def maximize_fapx_cvxpy( node, problem):
+def maximize_fapx_cvxpy(node, problem):
     '''
-    Finds the value of y solving maximize sum(fapx(x)) subject to:
-                       constr
-                       l <= x <= u
-    fapx is calculated by approximating the functions given in fs
-    as the concave envelope of the function that is tight, 
-    for each coordinate i, at the points in tight[i]
+    Solves 
+        maximize       sum(fapx(x)) 
+        subject to     Ax <= b
+                       Cx == d
+                       node.l <= x <= node.u
+    using cvxpy as the solver.
+    
+    fapx is calculated by approximating the functions fi given in fs
+    as a piecewise linear upper bound on fi that is tight, 
+    for each coordinate i, at the points in node.tight[i].
     fs should be a list of tuples containing the function and its derivative
     corresponding to each coordinate of the vector x.
   
     Returns a dict containing the optimal variable y as a list, 
     the optimal value of the approximate objective,
     and the value of sum(f(x)) at x.
-    
-    scoop = True optionally dumps all problem parameters into a file
-    which can be parsed and solved using the scoop second order cone 
-    modeling language
     '''
+    import cvxpy
     n = len(node.l);
     l = matrix(node.l); u = matrix(node.u)
 
-    x = problem.variable
-    (fapx,slopes,offsets,fapxs) = utilities.get_fapx(node.tight,problem.fs,l,u,y=x)
+    (slopes,offsets,fapxs) = utilities.get_fapx(node.tight,problem.fs,l,u)
     
     A = problem.constr['A']
     b = problem.constr['b']
     C = problem.constr['C']
     d = problem.constr['d']
 
+    ## Create cvxpy problem to solve
+    # We write maximize sum(fapx(x)) as maximize sum(f),
+    # where f[i] <= pwl upper bound on fi
     x = cvxpy.Variable(n)
     f = cvxpy.Variable(n)
-    random_solutions = []; improved = False
-    for i in range(problem.rand_refine):
-        w = numpy.matrix(random.randn(n))
-        objective = cvxpy.Minimize(w*x)
-        constraints = [x <= problem.u, x >= problem.l]
-        if A is not None and b is not None:
-            constraints.append(A*x <= b)
-        if C is not None and d is not None:
-            constraints.append(C*x == d)
-        for i,(slope_list,offset_list) in enumerate(zip(slopes,offsets)):
-            for s,o in zip(slope_list,offset_list):
-                # Ax <= b means f[i] - s*x[i] <= o so f[i] <= s*x[i] + o
-                constraints.append(f[i] <= s*x[i] + o)
-        constraints.append(sum(f) == phat)
-            
-        p = cvxpy.Problem(objective,constraints)
-        phat = p.solve()
-        if cvxpy.get_status(phat) is not cvxpy.SOLVED:
-            return False
-        xtilde = x.value
+    objective = cvxpy.Maximize(sum(f))
+    constraints = [x <= problem.u, x >= problem.l]
+    if A is not None and b is not None:
+        constraints.append(A*x <= b)
+    if C is not None and d is not None:
+        constraints.append(C*x == d)
+    for i,(slope_list,offset_list) in enumerate(zip(slopes,offsets)):
+        for s,o in zip(slope_list,offset_list):
+            constraints.append(f[i] <= s*x[i] + o)
+        
+    lp = cvxpy.Problem(objective,constraints)
+    phat = lp.solve()
+    if cvxpy.get_status(phat) is not cvxpy.SOLVED:
+        return False
     
     if problem.check_z:
         utilities.check_z(problem,node,fapx,x)
+    
+    # find the difference between the fapx and f for each coordinate i
+    fi_of_x = matrix(map(lambda (fi,xi): fi[0](xi), zip(problem.fs,x.value)))
+    maxdiff_index = numpy.argmax( f.value - fi_of_x)
+    results = {'x': list(x.value), 'fapx': phat, 'f': sum(fi_of_x), 'maxdiff_index': maxdiff_index}
+    
+    if problem.rand_refine > 0:
+        rand_results = random_lp_cvxpy(problem,node,x.value,
+                                       phat,float(sum(fi_of_x)),slopes,offsets)
+        if rand_results:
+            results = rand_results
+    
+    return results
         
-    else:
-        # find the difference between the fapx and f for each coordinate i
-        fi = numpy.array([problem.fs[i][0](x.value[i]) for i in range(n)])
-        fapxi = numpy.array([list(-fun.value())[0] for fun in fapx])
-        #if verbose: print 'fi',fi,'fapxi',fapxi
-        maxdiff_index = numpy.argmax( fapxi - fi )
-        results = {'x': list(x.value), 'fapx': -list(obj.value())[0], 'f': float(sum(fi)), 'maxdiff_index': maxdiff_index}
-        return results
-        
-def random_lp_cvxpy(problem,node,xhat,phat,f_of_xhat):
+def random_lp_cvxpy(problem,node,xhat,phat,f_of_xhat,slopes, offsets):
     '''
     returns None if no solution of any random LP is better than original xhat
     '''
+    import cvxpy
     f_orig = problem.fs
     n = len(problem.l)
-    # XXX duplicates work...
-    slopes, offsets, fapxs = get_fapx(problem.best_node.tight, problem.fs, problem.l, problem.u)
     A = problem.constr['A']
     b = problem.constr['b']
     C = problem.constr['C']
@@ -301,7 +307,7 @@ def random_lp_cvxpy(problem,node,xhat,phat,f_of_xhat):
     f = cvxpy.Variable(n)
     random_solutions = []; improved = False
     for i in range(problem.rand_refine):
-        w = numpy.matrix(random.randn(n))
+        w = numpy.matrix(numpy.random.randn(n))
         objective = cvxpy.Minimize(w*x)
         constraints = [x <= problem.u, x >= problem.l]
         if A is not None and b is not None:
@@ -318,17 +324,17 @@ def random_lp_cvxpy(problem,node,xhat,phat,f_of_xhat):
         p.solve()
         xtilde = x.value
         
-        f_of_xtilde_i = map(lambda (fi,xi): fi[0](xi), zip(f_orig,xtilde))
-        if sum(f_of_xtilde_i) > f_of_xhat:
+        fi_of_xtilde = matrix(map(lambda (fi,xi): fi[0](xi), zip(f_orig,xtilde)))
+        if sum(fi_of_xtilde) > f_of_xhat:
             improved = True
             xhat = xtilde
-            fi_of_xhat = f_of_xtilde_i
-            f_of_xhat = sum(f_of_xtilde_i)
-            fhati_of_xhat = fhati.value
+            fi_of_xhat = fi_of_xtilde
+            f_of_xhat = sum(fi_of_xtilde)
+            fhati_of_xhat = f.value
             
     if improved:
         maxdiff_index = numpy.argmax( fhati_of_xhat - fi_of_xhat)
-        return {'x': list(xhat), 'fapx': phat, 'f': fi_of_xhat, 'maxdiff_index': maxdiff_index}
+        return {'x': list(xhat), 'fapx': phat, 'f': f_of_xhat, 'maxdiff_index': maxdiff_index}
     else:
         return None
         
@@ -369,24 +375,28 @@ def maximize_fapx_glpk( node, problem, verbose = False ):
     results = {'x': xstar, 'fapx': lp.obj.value, 'f': float(sum(fi)), 'maxdiff_index': maxdiff_index}
     
     if problem.rand_refine > 0:
-        rand_results = solvers.random_lp_glpk(problem,node,xstar,lp.obj.value,float(sum(fi)))
+        rand_results = random_lp_cvxpy(problem,node,xstar,
+                                       lp.obj.value,float(sum(fi)),slopes,offsets)
         if rand_results:
             results = rand_results
     
     if verbose: print 'fi',fi,'fapxi',fapxi,results
     return results
     
-def random_lp_glpk(problem,node,xhat,phat,f_of_xhat):
+def mult_by(num):
+    return lambda x: num*x
+
+def constant(num):
+    return lambda x: num
+    
+def random_lp_glpk(problem,node,xhat,phat,f_of_xhat,slopes,offsets):
     '''
     returns None if no solution of any random LP is better than original xhat
     XXX not yet debugged
     '''
+    from sigopt import Problem
     f_orig = problem.fs
-
-    ## Constraints defining optimal set for convexified problem
     n = len(problem.l)
-    # XXX duplicates work done elsewhere
-    slopes, offsets, fapxs = get_fapx(node, problem.fs, problem.l, problem.u)
     
     # first n coordinates correspond to x; second n correspond to f_i^*
     # Cx == d means \sum f_i^* == phat
@@ -404,12 +414,12 @@ def random_lp_glpk(problem,node,xhat,phat,f_of_xhat):
     
     ## Add constraints from original problem
     if problem.constr['A'] is not None and problem.constr['b'] is not None:
-        A = A + [row + [0]*n for row in matrix(problem.constr['A']).tolist()]
-        b = b + [row[0] for row in matrix(problem.constr['b']).tolist()]
+        A = A + [row + [0]*n for row in numpy.matrix(problem.constr['A']).tolist()]
+        b = b + [row[0] for row in numpy.matrix(problem.constr['b']).tolist()]
 
     if problem.constr['C'] is not None and problem.constr['d'] is not None:
-        C = C + [row + [0]*n for row in matrix(problem.constr['C']).tolist()]
-        d = d + [row[0] for row in matrix(problem.constr['d']).tolist()]
+        C = C + [row + [0]*n for row in numpy.matrix(problem.constr['C']).tolist()]
+        d = d + [row[0] for row in numpy.matrix(problem.constr['d']).tolist()]
     
     big = 100000*max(1,phat) # nuisance parameter, shouldn't matter as long as it's sufficiently large (bounds |f^*_i|)
     l = problem.l + [-big]*n
@@ -418,7 +428,7 @@ def random_lp_glpk(problem,node,xhat,phat,f_of_xhat):
     ## solve a few randomized LPs to find a better solution (lower bound)
     improved = False
     for i in range(problem.rand_refine):
-        w = random.randn(n)
+        w = numpy.random.randn(n)
         # first n coordinates correspond to x; second n correspond to f_i^*
         fprime_const = w.tolist() + [0]*n
         f = map(mult_by,fprime_const)

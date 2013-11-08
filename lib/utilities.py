@@ -283,48 +283,42 @@ def maximize_fapx( node, problem):
         return solvers.maximize_fapx_glpk( node, problem )
     elif problem.solver == 'cvxopt':
         return solvers.maximize_fapx_cvxopt( node, problem )
+    elif problem.solver == 'cvxpy':
+        import cvxpy
+        return solvers.maximize_fapx_cvxpy( node, problem )
     else:
         raise ValueError('Unknown solver %s'%solver)
 	
-def get_constraints(problem,A,b,C,d,constr,variable,n=None,format='glpk'):
-    '''
-    Format constraints for problem
-    '''
-    if format=='cvxopt':
-        if constr is not None and variable is not None:
-            constr = constr
-            variable = variable
-        else:
-            variable = cvxopt.modeling.variable(n,'x')
-            constr = []
+def format_constraints_cvxopt(problem):
+        variable = cvxopt.modeling.variable(n,'x')
+        problem.cvxopt_constr = []
         
         if A is not None and b is not None:
             A = cvxopt.matrix(A,tc='d')
             b = cvxopt.matrix(b,tc='d')
             ineq = (A*variable <= b)
-            constr.append(ineq)
+            problem.cvxopt_constr.append(ineq)
         if C is not None and d is not None:
             C = cvxopt.matrix(C,tc='d')
             d = cvxopt.matrix(d,tc='d')
             eq = (C*variable == d)
-            constr.append(eq)
-        problem.constr = constr
-        problem.variable = variable
+            problem.cvxopt_constr.append(eq)
+        problem.cvxopt_variable = variable
+	
+def format_constraints(problem,A,b,C,d,constr=None,variable=None,n=None,format='sigopt'):
+    '''
+    Format constraints for problem
+    '''
+    if A is not None and b is not None:
+        A = cvxopt.matrix(A)
+        b = cvxopt.matrix(b)
+    if C is not None and d is not None:
+        C = cvxopt.matrix(C)
+        d = cvxopt.matrix(d)
+    constr = {'A':A,'b':b,'C':C,'d':d}
         
-    elif format=='glpk' or format=='cvxpy':
-        if A is not None and b is not None:
-            A = cvxopt.matrix(A)
-            b = cvxopt.matrix(b)
-        if C is not None and d is not None:
-            C = cvxopt.matrix(C)
-            d = cvxopt.matrix(d)
-        constr = {'A':A,'b':b,'C':C,'d':d}
-        problem.constr = constr
-        
-    else:
-        raise NotImplementedError('Unknown format %s'%format)
-
-    # make sure dimensions of inputs match    
+    # make sure dimensions of inputs match   
+    n = len(problem.l)
     if A is not None and b is not None:
         if not A.size[0] == b.size[0]:
             raise ValueError('Check dimensions of A and b')
@@ -335,6 +329,8 @@ def get_constraints(problem,A,b,C,d,constr,variable,n=None,format='glpk'):
             raise ValueError('Check dimensions of C and d')
         if not C.size[1] == n:
             raise ValueError('Check dimensions of C')
+            
+    return constr
             
 def scoop(p,node,slopes,offsets):
     '''

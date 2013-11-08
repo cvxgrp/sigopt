@@ -149,11 +149,11 @@ def num(n=64,m=64,s=5,seed=3,opt='random',func='admit',tol=.01):
     probs = ([1]*s+[0]*(n-s+1))*(n-1)+[1]
     A = cvxopt.matrix([round(x*numpy.random.rand()) for x in probs],(n,n),tc='d')
     c = cvxopt.matrix([s/2]*n,tc='d')
-    print 'There are',sum(A),'edges used in this NUM problem'
+    # print 'There are',sum(A),'edges used in this NUM problem'
   elif opt == 'random':
     A = cvxopt.matrix([round(.5/(1-float(s)/m)*x) for x in numpy.random.rand(m*n)]
 ,(m,n),tc='d')
-    print 'There are',sum(A),'edges used in this NUM problem'
+    #print 'There are',sum(A),'edges used in this NUM problem'
     c = cvxopt.matrix([s/2]*m,tc='d')
   else:
     raise ValueError('unknown option %s'%opt)

@@ -89,6 +89,9 @@ class Problem(object):
         self.l = [float(li) for li in l]
         self.u = [float(ui) for ui in u]
         
+        # other constraints         
+        self.constr = utilities.format_constraints(self,A,b,C,d,constr)
+        
         self.fs = fs
                 
         # check dimensions and adequacy of data
@@ -102,13 +105,13 @@ class Problem(object):
         # initialize        
         self.x = self.u
         self.best_node = Node(l,u,self)
-        self.LB = self.best_node.LB
+        self.LB = -float('inf')
         self._bounds = Queue()
         self.bounds = []
         
         # sort nodes for splitting in descending order by upper bound
         self.partition = MaxQueue()
-        self.partition.put((self.best_node.UB,self.best_node))
+        self.partition.put((float('inf'),self.best_node))
     
     def run_serial(self, maxiters = 0, verbose = False, prune = False, tol = None,
                    solver = 'glpk', rand_refine = 0):
@@ -136,13 +139,20 @@ class Problem(object):
         '''
         self.solver = solver
         self.rand_refine = rand_refine
-        utilities.get_constraints(self,A,b,C,d,constr,variable,n=len(l),format=solver)
+        if solver == 'cvxopt':
+            utilities.format_constraints_cvxopt(self)
 
         if tol is None: tol = self.tol
         iter = 0
         while not maxiters or iter < maxiters:
             iter += 1
             UB, node = self.partition.get_nowait()
+            
+            # initialize bounds if no subproblem has yet been solved
+            if UB == float('inf'):
+                utilities.compute_ULB(node, self)
+                self.partition.put((node.UB,node))
+                continue
         
             # record bounds
             self._bounds.put((self.LB,UB))
@@ -190,6 +200,15 @@ class Problem(object):
             next = self._bounds.get()
             self.bounds.append(next)
         return self.bounds
+        
+    def new(self):
+        '''
+        Returns a new problem with the same objective, constraints, and parameters
+        '''
+        return Problem(self.l,self.u,self.fs,
+                       tol=self.tol,sub_tol=self.sub_tol,name=self.name,
+                       nthreads = self.nthreads,check_z=self.check_z,
+                       **self.constr)
       
 class Node(object):
     '''
@@ -207,10 +226,10 @@ class Node(object):
         tight gives a set of points at which the concave upper approximation of f
             is tight (used for computing piecewise linear concave upper bound).
     '''
-    def __init__(self,l,u,problem,**kwargs):
+    def __init__(self,l,u,problem=None,**kwargs):
         self.l = list(l)
         self.u = list(u)
-        if problem:
+        if problem and hasattr(problem,'solver'):
             utilities.compute_ULB(self,problem)
         for key in kwargs:
             setattr(self,key,kwargs[key])
