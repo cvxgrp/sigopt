@@ -268,7 +268,7 @@ def maximize_fapx_cvxpy( node, problem):
             
         p = cvxpy.Problem(objective,constraints)
         phat = p.solve()
-        if #infeasible:
+        if cvxpy.get_status(phat) is not cvxpy.SOLVED:
             return False
         xtilde = x.value
     
@@ -328,7 +328,7 @@ def random_lp_cvxpy(problem,node,xhat,phat,f_of_xhat):
             
     if improved:
         maxdiff_index = numpy.argmax( fhati_of_xhat - fi_of_xhat)
-        return results = {'x': list(xhat), 'fapx': phat, 'f': fi_of_xhat, 'maxdiff_index': maxdiff_index}
+        return {'x': list(xhat), 'fapx': phat, 'f': fi_of_xhat, 'maxdiff_index': maxdiff_index}
     else:
         return None
         

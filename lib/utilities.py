@@ -164,7 +164,9 @@ def get_fapx(tight, fs, l, u, y = None, tol = 1e-10, debug = False ):
     that is tight at each point in tight[i], as well as at l and u, 
     in 3 formats: 
 
-      slopes/offsets: obey
+      slopes/offsets: lists of slopes and offsets of linear functionals approximating f.             
+                      fapxi(x) = max_j slopes[i,j]*x + offsets[i,j]
+                      These obey
     
                for i,slope_list,offset_list in enumerate(zip(slopes,offsets)):
                   for s,o in zip(slope_list,offset_list):
@@ -176,7 +178,7 @@ def get_fapx(tight, fs, l, u, y = None, tol = 1e-10, debug = False ):
           because cvxopt minimizes, and doesn't maximize)
           (only computed if cvxopt.modeling.variable y is given)
         
-    Also returns lists of slopes and offsets of linear functionals approximating f
+    Also returns 
     '''  
     if y is not None: ms = []
     slopes = []
@@ -309,7 +311,7 @@ def get_constraints(problem,A,b,C,d,constr,variable,n=None,format='glpk'):
         problem.constr = constr
         problem.variable = variable
         
-    elif format=='glpk':
+    elif format=='glpk' or format=='cvxpy':
         if A is not None and b is not None:
             A = cvxopt.matrix(A)
             b = cvxopt.matrix(b)

@@ -146,5 +146,30 @@ def test_db():
         
     print 'improvements:',improvement
         
+def test_rand_refine(solver='glpk'):
+    from sigopt import Problem
+    problem_names = ['bidding(n=16,type="admit",tol=.01)',
+                'bidding(n=16,type="pretty",tol=.01)',
+                'bidding(n=16,type="profit",tol=.01)',
+                'bidding(n=16,type="winnings",B=.5,tol=.01)',
+                'ilp(n=25,m=5)',
+                'num(n=16,m=10,s=3)',
+                'num(n=16,s=3,opt="ring",func="quadratic")',
+                'num(n=16,m=10,s=3,opt="local")'
+                ]
+
+    ## see how much we improve using db LP
+    improvement = []
+    for example in problem_names:
+    
+        problem = eval('examples.'+example)    
+        problem.solve(maxiters=1,solver=solver)
+        before_rand = problem.bounds[-1][0]
+        
+        problem = eval('examples.'+example)    
+        problem.solve(maxiters=1,solver=solver,rand_refine=3)
+        after_rand = problem.bounds[-1][0]
+        print before_rand, after_rand
+        
 if __name__=='__main__':
-    test_db()
+    test_rand_refine()

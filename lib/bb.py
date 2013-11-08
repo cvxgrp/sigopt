@@ -66,16 +66,11 @@ class Problem(object):
         indexed by their upper bounds, in decreasing order.
         
     problem.bounds is a list of the bounds obtained after each iteration. 
-    
-    if rand_refine > 0, then the lower bound is computed using the best point 
-    given by solving rand_refine random LPs, 
-    as prescribed by a forthcoming paper on duality bounds. 
     '''
     
     def __init__(self,l,u,fs,
                  A=None,b=None,C=None,d=None,constr=None,variable=None,
-                 tol=.01,sub_tol=None,name='',nthreads = 1,check_z=False,
-                 solver = 'glpk', rand_refine = 0):
+                 tol=.01,sub_tol=None,name='',nthreads = 1,check_z=False):
         
         # parameters
         self.tol = tol
@@ -88,8 +83,6 @@ class Problem(object):
         else:
             self.name = 'sp'
         self.nthreads = nthreads
-        self.solver = solver
-        self.rand_refine = rand_refine
         
         # box constraints
         # cast everything to float, since cvxopt breaks if numpy.float64 floats are used
@@ -105,8 +98,6 @@ class Problem(object):
             if len(f)<3:    
                 self.fs[i] = utilities.find_z(f,l[i],u[i],self.sub_tol)
         self.check_z = check_z
-
-        utilities.get_constraints(self,A,b,C,d,constr,variable,n=len(l),format=solver)
             
         # initialize        
         self.x = self.u
@@ -119,7 +110,8 @@ class Problem(object):
         self.partition = MaxQueue()
         self.partition.put((self.best_node.UB,self.best_node))
     
-    def run_serial(self,maxiters=0,verbose=False,prune=False,tol=None):
+    def run_serial(self, maxiters = 0, verbose = False, prune = False, tol = None,
+                   solver = 'glpk', rand_refine = 0):
         '''
         Finds a solution of quality problem.tol to the problem.
         
@@ -134,7 +126,18 @@ class Problem(object):
         ie when the highest upper bound is less than problem.tol
         greater than the highest lower bound,
         or after maxiters subproblems have been solved.
+        
+        solver chooses which solver to use to solve convex subproblems. Options
+        include cvxpy, cvxopt, and glpk.
+        
+        if rand_refine > 0, then the lower bound is computed using the best point 
+        given by solving rand_refine random LPs, 
+        as prescribed by a forthcoming paper on duality bounds. 
         '''
+        self.solver = solver
+        self.rand_refine = rand_refine
+        utilities.get_constraints(self,A,b,C,d,constr,variable,n=len(l),format=solver)
+
         if tol is None: tol = self.tol
         iter = 0
         while not maxiters or iter < maxiters:
