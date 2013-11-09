@@ -1,9 +1,12 @@
 '''
 LP solvers for sigmoidal programming problems.
 
-Both cvxopt interfaces and py-glpk interfaces are included
+Both cvxopt interfaces, cvxpy, and py-glpk interfaces are included
 py-glpk is preferred since without the bindings to glpk, 
-cvxopt sometimes refuses to solve an LP for technical reasons.
+cvxopt sometimes refuses to solve an LP for technical reasons,
+and generically interior point methods such as cxvopt and cvxpy
+produce lower LB than simplex solvers,
+unless a random LP is solved as a refinement step (set rand_refine >= 1)
 '''
 
 # Copyright 2013 M. Udell
@@ -23,14 +26,9 @@ cvxopt sometimes refuses to solve an LP for technical reasons.
 # You should have received a copy of the GNU General Public License
 # along with SIGOPT.  If not, see <http://www.gnu.org/licenses/>.
 
-import glpk, numpy
-from cvxopt.base import matrix, spmatrix, exp
-from cvxopt.modeling import variable, op, max, sum
+# XXX should work with cvxpy alone, or with glpk alone and rand_refine = 0
+import numpy
 import utilities
-try: 
-    import cvxpy
-except:
-    pass
 
 def cvxopt_modeling2cvxopt_matrices(op):
     '''
@@ -244,7 +242,6 @@ def maximize_fapx_cvxpy(node, problem):
     the optimal value of the approximate objective,
     and the value of sum(f(x)) at x.
     '''
-    import cvxpy
     n = len(node.l);
     l = matrix(node.l); u = matrix(node.u)
 
@@ -295,7 +292,6 @@ def random_lp_cvxpy(problem,node,xhat,phat,f_of_xhat,slopes, offsets):
     '''
     returns None if no solution of any random LP is better than original xhat
     '''
-    import cvxpy
     f_orig = problem.fs
     n = len(problem.l)
     A = problem.constr['A']
@@ -382,73 +378,3 @@ def maximize_fapx_glpk( node, problem, verbose = False ):
     
     if verbose: print 'fi',fi,'fapxi',fapxi,results
     return results
-    
-def mult_by(num):
-    return lambda x: num*x
-
-def constant(num):
-    return lambda x: num
-    
-def random_lp_glpk(problem,node,xhat,phat,f_of_xhat,slopes,offsets):
-    '''
-    returns None if no solution of any random LP is better than original xhat
-    XXX not yet debugged
-    '''
-    from sigopt import Problem
-    f_orig = problem.fs
-    n = len(problem.l)
-    
-    # first n coordinates correspond to x; second n correspond to f_i^*
-    # Cx == d means \sum f_i^* == phat
-    C = [[0]*n + [1]*n]
-    d = [phat]
-
-    A = []; b = []; 
-    for i,(slope_list,offset_list) in enumerate(zip(slopes,offsets)):
-        for s,o in zip(slope_list,offset_list):
-            # Ax <= b means f[i] - s*x[i] <= o so f[i] <= s*x[i] + o
-            A.append([0]*2*n)
-            A[-1][i] = -s
-            A[-1][i+n] = 1
-            b.append(o)
-    
-    ## Add constraints from original problem
-    if problem.constr['A'] is not None and problem.constr['b'] is not None:
-        A = A + [row + [0]*n for row in numpy.matrix(problem.constr['A']).tolist()]
-        b = b + [row[0] for row in numpy.matrix(problem.constr['b']).tolist()]
-
-    if problem.constr['C'] is not None and problem.constr['d'] is not None:
-        C = C + [row + [0]*n for row in numpy.matrix(problem.constr['C']).tolist()]
-        d = d + [row[0] for row in numpy.matrix(problem.constr['d']).tolist()]
-    
-    big = 100000*max(1,phat) # nuisance parameter, shouldn't matter as long as it's sufficiently large (bounds |f^*_i|)
-    l = problem.l + [-big]*n
-    u = problem.u + [big]*n
-
-    ## solve a few randomized LPs to find a better solution (lower bound)
-    improved = False
-    for i in range(problem.rand_refine):
-        w = numpy.random.randn(n)
-        # first n coordinates correspond to x; second n correspond to f_i^*
-        fprime_const = w.tolist() + [0]*n
-        f = map(mult_by,fprime_const)
-        fprime = map(constant,fprime_const)
-        fs = zip(f,fprime)
-
-        # XXX better to solve using glpk than as an embedded sigmoidal programming problem
-        random_problem = Problem(l, u, fs, matrix(A), b, matrix(C), d)
-        random_problem.solve()
-        xtilde = random_problem.x[:n]
-    
-        f_of_xtilde_i = map(lambda (fi,xi): fi[0](xi), zip(f_orig,xtilde))
-        if sum(f_of_xtilde_i) > f_of_xhat:
-            improved = True
-            xhat, f_of_xhat, f_of_xhat_i, fhat_of_xhat_i = \
-            xtilde, sum(f_of_xtilde_i), numpy.array(f_of_xtilde_i), \
-            numpy.array(random_problem.x[n:])
-
-    if improved:
-        maxdiff_index = numpy.argmax( fhat_of_xhat_i - f_of_xhat_i)
-        return {'x': xhat, 'fapx': phat, 'f': f_of_xhat, 'maxdiff_index': maxdiff_index}
-    else:
-        return None

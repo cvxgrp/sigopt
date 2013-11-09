@@ -156,7 +156,6 @@ def test_rand_refine(solver='glpk',rand_refine = 3,maxiters=10):
                     ]
 
     ## see how much we improve using db LP
-    improvement = []
     for example in problem_names:
     
         problem = eval('examples.'+example)    

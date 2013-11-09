@@ -140,7 +140,14 @@ class Problem(object):
         self.solver = solver
         self.rand_refine = rand_refine
         if solver == 'cvxopt':
+            import cvxopt
+            from cvxopt.base import matrix, spmatrix, exp
+            from cvxopt.modeling import variable, op, max, sum
             utilities.format_constraints_cvxopt(self)
+        elif solver == 'cvxpy':
+            import cvxpy
+        elif solver == 'glpk':
+            import glpk
 
         if tol is None: tol = self.tol
         iter = 0

@@ -284,7 +284,6 @@ def maximize_fapx( node, problem):
     elif problem.solver == 'cvxopt':
         return solvers.maximize_fapx_cvxopt( node, problem )
     elif problem.solver == 'cvxpy':
-        import cvxpy
         return solvers.maximize_fapx_cvxpy( node, problem )
     else:
         raise ValueError('Unknown solver %s'%solver)
