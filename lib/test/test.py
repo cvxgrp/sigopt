@@ -83,3 +83,4 @@ def test_rand_refine(solver='cvxpy',rand_refine = 1,maxiters=1):
         
 if __name__=='__main__':
     test()
+    test_rand_refine()

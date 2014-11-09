@@ -1,9 +1,12 @@
 '''
 LP solvers for sigmoidal programming problems.
 
-Both cvxopt interfaces and py-glpk interfaces are included
+Both cvxopt interfaces, cvxpy, and py-glpk interfaces are included
 py-glpk is preferred since without the bindings to glpk, 
-cvxopt sometimes refuses to solve an LP for technical reasons.
+cvxopt sometimes refuses to solve an LP for technical reasons,
+and generically interior point methods such as cxvopt and cvxpy
+produce lower LB than simplex solvers,
+unless a random LP is solved as a refinement step (set rand_refine >= 1)
 '''
 
 # Copyright 2013 M. Udell
@@ -24,14 +27,8 @@ cvxopt sometimes refuses to solve an LP for technical reasons.
 # along with SIGOPT.  If not, see <http://www.gnu.org/licenses/>.
 
 # XXX should work with cvxpy alone, or with glpk alone and rand_refine = 0
-import glpk, numpy
-from cvxopt.base import matrix, spmatrix, exp
-from cvxopt.modeling import variable, op, max, sum
+import numpy
 import utilities
-try: 
-    import cvxpy
-except:
-    pass
 
 def cvxopt_modeling2cvxopt_matrices(op):
     '''
