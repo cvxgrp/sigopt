@@ -30,7 +30,7 @@ setup(
     version = "0.1.1",
     package_dir = {'sigopt': 'lib'},
     packages = ['sigopt','sigopt.test'],
-    install_requires = ['docutils>=0.3','numpy','scipy','matplotlib','glpk','cvxopt'],
+    install_requires = ['docutils>=0.3','numpy','scipy','matplotlib','cvxopt','cvxpy'],
 
     # metadata for upload to PyPI
     author='Madeleine Udell',

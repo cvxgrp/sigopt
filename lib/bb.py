@@ -113,8 +113,8 @@ class Problem(object):
         self.partition = MaxQueue()
         self.partition.put((float('inf'),self.best_node))
     
-    def run_serial(self, maxiters = 0, verbose = False, prune = False, tol = None,
-                   solver = 'glpk', rand_refine = 0):
+    def run_serial(self, maxiters = 0, verbose = True, prune = True, tol = None,
+                   solver = 'cvxpy', rand_refine = 1):
         '''
         Finds a solution of quality problem.tol to the problem.
         
@@ -131,14 +131,15 @@ class Problem(object):
         or after maxiters subproblems have been solved.
         
         solver chooses which solver to use to solve convex subproblems. Options
-        include cvxpy, cvxopt, and glpk.
+        include cvxpy and cvxopt.
         
         if rand_refine > 0, then the lower bound is computed using the best point 
-        given by solving rand_refine random LPs, 
-        as prescribed by a forthcoming paper on duality bounds. 
+        given by solving rand_refine random LPs in order to find an upper bound 
+        satisfying the bound on the duality gap given in http://arxiv.org/abs/1410.4158. 
         '''
         self.solver = solver
         self.rand_refine = rand_refine
+        # XXX this code seems not to do anything; solvers need to be imported in solvers.py
         if solver == 'cvxopt':
             import cvxopt
             from cvxopt.base import matrix, spmatrix, exp
@@ -146,8 +147,8 @@ class Problem(object):
             utilities.format_constraints_cvxopt(self)
         elif solver == 'cvxpy':
             import cvxpy
-        elif solver == 'glpk':
-            import glpk
+        else:
+            raise ValueError("solver not recognized: %s"%solver)
 
         if tol is None: tol = self.tol
         iter = 0
@@ -234,8 +235,8 @@ class Node(object):
             is tight (used for computing piecewise linear concave upper bound).
     '''
     def __init__(self,l,u,problem=None,**kwargs):
-        self.l = list(l)
-        self.u = list(u)
+        self.l = l
+        self.u = u
         if problem and hasattr(problem,'solver'):
             utilities.compute_ULB(self,problem)
         for key in kwargs:
@@ -249,9 +250,10 @@ class Node(object):
         
         returns the two subnodes
         '''
-        u_left = list(self.u); u_left[self.maxdiff_index] = self.x[self.maxdiff_index]
+        print self.u, self.maxdiff_index
+        u_left = self.u; u_left[self.maxdiff_index] = self.x[self.maxdiff_index]
         left_child = Node(self.l,u_left,problem)
-        l_right = list(self.l); l_right[self.maxdiff_index] = self.x[self.maxdiff_index]
+        l_right = self.l; l_right[self.maxdiff_index] = self.x[self.maxdiff_index]
         right_child = Node(l_right,self.u,problem)
         return (left_child,right_child)
       
